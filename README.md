@@ -58,6 +58,7 @@ The script accepts the following command line arguments:
 Usage: ./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [-h|--help]
   --appimagetool <path>   Path to appimagetool (default: /home/fabio/data/opt/appimagetool-x86_64.AppImage)
   --bundle-electron       Bundle Electron with the AppImage (default: 0)
+  --claude-download-url <url>  URL to download the Windows installer (default: https://claude.ai/download)
   -h, --help             Show this help message
 
 ./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [-h|--help]

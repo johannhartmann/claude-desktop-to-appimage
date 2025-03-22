@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-# These variables should be set according to your system
+# ==========================================================================================
+# Change these variables to customize the build (or use command line arguments, see below)
+# ==========================================================================================
 
 # Path to appimagetool
 APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
@@ -9,6 +11,9 @@ APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
 # Set to 1 if you want to bundle Electron with the AppImage (warning - this will increase the size of the AppImage)
 # Set to 0 if you want to use the system Electron
 ELECTRON_BUNDLED=0
+
+# Update this URL when a new version of Claude Desktop is released
+CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-win-x64/Claude-Setup-x64.exe"
 
 # ==========================================================================================
 # YOU SHOULD NOT NEED TO CHANGE ANYTHING BELOW THIS LINE
@@ -19,6 +24,10 @@ ELECTRON_BUNDLED=0
 # also supports -h and --help
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --claude-download-url)
+            CLAUDE_DOWNLOAD_URL="$2"
+            shift 2
+            ;;
         --appimagetool)
             APP_IMAGE_TOOL="$2"
             shift 2
@@ -31,6 +40,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [-h|--help]"
             echo "  --appimagetool <path>   Path to appimagetool (default: $APP_IMAGE_TOOL)"
             echo "  --bundle-electron       Bundle Electron with the AppImage (default: $ELECTRON_BUNDLED)"
+            echo "  --claude-download-url   URL to download the Claude Desktop installer (default: $CLAUDE_DOWNLOAD_URL)"
             echo "  -h, --help             Show this help message"
             exit 0
             ;;
@@ -42,10 +52,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-
-
-# Update this URL when a new version of Claude Desktop is released
-CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-win-x64/Claude-Setup-x64.exe"
 
 
 CURRENT_DIR="$(pwd)"

@@ -1,10 +1,44 @@
 #!/bin/bash
 set -e
 
+# These variables should be set according to your system
+
+# Path to appimagetool
+APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
+
+# Set to 1 if you want to bundle Electron with the AppImage (warning - this will increase the size of the AppImage)
+# Set to 0 if you want to use the system Electron
+ELECTRON_BUNDLED=0
+
+# ==========================================================================================
+# YOU SHOULD NOT NEED TO CHANGE ANYTHING BELOW THIS LINE
+# ==========================================================================================
+
+# Now read command line arguments to change the above variables
+# with flags --appimagetool and --bundle-electron
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --appimagetool)
+            APP_IMAGE_TOOL="$2"
+            shift 2
+            ;;
+        --bundle-electron)
+            ELECTRON_BUNDLED=1
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+
+
+
 # Update this URL when a new version of Claude Desktop is released
 CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-win-x64/Claude-Setup-x64.exe"
 
-APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
 
 CURRENT_DIR="$(pwd)"
 
@@ -75,22 +109,50 @@ fi
 
 # Check for electron - first local, then global
 # Check for local electron in node_modules
-if [ -f "$(pwd)/node_modules/.bin/electron" ]; then
-    echo "✓ local electron found in node_modules"
-    LOCAL_ELECTRON="$(pwd)/node_modules/.bin/electron"
-    export PATH="$(pwd)/node_modules/.bin:$PATH"
-elif ! check_command "electron"; then
-    echo "Installing electron via npm..."
-    # Try local installation first
-    if [ -f "package.json" ]; then
-        echo "Found package.json, installing electron locally..."
-        npm install --save-dev electron
-        if [ -f "$(pwd)/node_modules/.bin/electron" ]; then
-            echo "✓ Local electron installed successfully"
-            LOCAL_ELECTRON="$(pwd)/node_modules/.bin/electron"
-            export PATH="$(pwd)/node_modules/.bin:$PATH"
+if [ "$ELECTRON_BUNDLED" -eq 1 ]; then
+    echo "Electron bundling is enabled. Installing electron locally..."
+    # Create package.json if it doesn't exist
+    if [ ! -f "package.json" ]; then
+        echo '{"name":"claude-desktop-appimage","version":"1.0.0","private":true}' > package.json
+    fi
+    # Install electron locally
+    npm install --save-dev electron
+    if [ -f "$(pwd)/node_modules/.bin/electron" ]; then
+        echo "✓ Local electron installed successfully for bundling"
+        LOCAL_ELECTRON="$(pwd)/node_modules/.bin/electron"
+        export PATH="$(pwd)/node_modules/.bin:$PATH"
+    else
+        echo "❌ Failed to install local electron. Cannot proceed with bundling."
+        exit 1
+    fi
+else
+    # Original electron detection logic for when bundling is disabled
+    if [ -f "$(pwd)/node_modules/.bin/electron" ]; then
+        echo "✓ local electron found in node_modules"
+        LOCAL_ELECTRON="$(pwd)/node_modules/.bin/electron"
+        export PATH="$(pwd)/node_modules/.bin:$PATH"
+    elif ! check_command "electron"; then
+        echo "Installing electron via npm..."
+        # Try local installation first
+        if [ -f "package.json" ]; then
+            echo "Found package.json, installing electron locally..."
+            npm install --save-dev electron
+            if [ -f "$(pwd)/node_modules/.bin/electron" ]; then
+                echo "✓ Local electron installed successfully"
+                LOCAL_ELECTRON="$(pwd)/node_modules/.bin/electron"
+                export PATH="$(pwd)/node_modules/.bin:$PATH"
+            else
+                # Fall back to global installation if local fails
+                npm install -g electron
+                if ! check_command "electron"; then
+                    echo "Failed to install electron. Please install it manually:"
+                    echo "npm install --save-dev electron"
+                    exit 1
+                fi
+                echo "Global electron installed successfully"
+            fi
         else
-            # Fall back to global installation if local fails
+            # No package.json, try global installation
             npm install -g electron
             if ! check_command "electron"; then
                 echo "Failed to install electron. Please install it manually:"
@@ -99,15 +161,6 @@ elif ! check_command "electron"; then
             fi
             echo "Global electron installed successfully"
         fi
-    else
-        # No package.json, try global installation
-        npm install -g electron
-        if ! check_command "electron"; then
-            echo "Failed to install electron. Please install it manually:"
-            echo "npm install --save-dev electron"
-            exit 1
-        fi
-        echo "Global electron installed successfully"
     fi
 fi
 
@@ -387,11 +440,13 @@ else
     SANDBOX_FLAG="--no-sandbox"
 fi
 
-# Try to use bundled electron if available
+# Run with bundled electron or fall back to global if not available
 if [ -f "\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron" ]; then
+    # Use bundled electron
     "\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron" \$SANDBOX_FLAG "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
 else
     # Fall back to globally installed electron
+    echo "Warning: Bundled Electron not found, falling back to system Electron"
     electron \$SANDBOX_FLAG "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
 fi
 EOF

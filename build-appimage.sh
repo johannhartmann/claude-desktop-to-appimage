@@ -6,6 +6,8 @@ CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-34
 
 APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
 
+CURRENT_DIR="$(pwd)"
+
 # Check for Linux system
 if [ ! -f "/etc/os-release" ]; then
     echo "❌ This script requires a Linux distribution"
@@ -411,8 +413,10 @@ fi
 
 if [ -f "$APPIMAGE_FILE" ]; then
     chmod +x "$APPIMAGE_FILE"
-    echo "✓ AppImage built successfully at: $APPIMAGE_FILE"
-    echo "🎉 Done! You can now run the AppImage with: $APPIMAGE_FILE"
+    mv "$APPIMAGE_FILE" "$CURRENT_DIR"
+    echo "✓ AppImage built successfully"
+    echo "🎉 Done! You can now run the AppImage with: $(basename $APPIMAGE_FILE)"
+    rm -Rf build
 else
     echo "❌ AppImage file not found at expected location: $APPIMAGE_FILE"
     exit 1

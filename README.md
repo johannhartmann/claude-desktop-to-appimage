@@ -50,6 +50,25 @@ Requirements:
 - Any Debian-based Linux distribution
 - Node.js >= 12.0.0 and npm
 
+## Command line
+
+The script accepts the following command line arguments:
+
+```bash
+Usage: ./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [-h|--help]
+  --appimagetool <path>   Path to appimagetool (default: /home/fabio/data/opt/appimagetool-x86_64.AppImage)
+  --bundle-electron       Bundle Electron with the AppImage (default: 0)
+  -h, --help             Show this help message
+
+./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [-h|--help]
+```
+
+You can run the script without arguments, and it will use the default values.
+
+```bash
+./build-appimage.sh
+```
+
 # How it works
 
 Claude Desktop is an Electron application packaged as a Windows executable. Our build script performs several key operations to make it work on Linux:

@@ -16,6 +16,7 @@ ELECTRON_BUNDLED=0
 
 # Now read command line arguments to change the above variables
 # with flags --appimagetool and --bundle-electron
+# also supports -h and --help
 while [[ $# -gt 0 ]]; do
     case $1 in
         --appimagetool)
@@ -25,6 +26,13 @@ while [[ $# -gt 0 ]]; do
         --bundle-electron)
             ELECTRON_BUNDLED=1
             shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [-h|--help]"
+            echo "  --appimagetool <path>   Path to appimagetool (default: $APP_IMAGE_TOOL)"
+            echo "  --bundle-electron       Bundle Electron with the AppImage (default: $ELECTRON_BUNDLED)"
+            echo "  -h, --help             Show this help message"
+            exit 0
             ;;
         *)
             echo "Unknown option: $1"

@@ -420,15 +420,49 @@ HERE="\$(dirname "\$(readlink -f "\$0")")"
 export PATH="\$HERE/usr/bin:\$HERE/usr/lib/claude-desktop/node_modules/.bin:\$PATH"
 export LD_LIBRARY_PATH="\$HERE/usr/lib:\$PATH"
 
-# Check for sandbox configuration issues
-ELECTRON_PATH=""
+# Find electron paths - this will help when electron is not bundled
 if [ -f "\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron" ]; then
+    # Use bundled electron
     ELECTRON_PATH="\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron"
 else
-    ELECTRON_PATH="\$(which electron 2>/dev/null)"
+    # Search for electron in common locations
+    ELECTRON_PATHS=(
+        # Look in PATH
+        "\$(which electron 2>/dev/null)"
+        # Check common NVM locations
+        "\$HOME/.nvm/versions/node/*/bin/electron"
+        # Check common global npm locations
+        "/usr/local/bin/electron"
+        "/usr/bin/electron"
+        # Check flatpak electron
+        "/var/lib/flatpak/exports/bin/io.atom.electron"
+    )
+
+    for path in "\${ELECTRON_PATHS[@]}"; do
+        if [ -n "\$path" ] && [ -x "\$path" ]; then
+            ELECTRON_PATH="\$path"
+            break
+        fi
+    done
+
+    # Handle glob expansion for NVM
+    if [ -z "\$ELECTRON_PATH" ]; then
+        NVM_ELECTRON=(\$HOME/.nvm/versions/node/*/bin/electron)
+        if [ -x "\${NVM_ELECTRON[0]}" ]; then
+            ELECTRON_PATH="\${NVM_ELECTRON[0]}"
+        fi
+    fi
 fi
 
-# Try to detect NVM installation and sandbox issues
+# If we still don't have a valid electron path, inform the user
+if [ -z "\$ELECTRON_PATH" ] || [ ! -x "\$ELECTRON_PATH" ]; then
+    echo "Error: Could not find electron executable."
+    echo "Please install electron globally with: npm install -g electron"
+    echo "Or run with: electron \$HERE/usr/lib/claude-desktop/app.asar"
+    exit 1
+fi
+
+# Check for sandbox configuration issues
 if [ -n "\$ELECTRON_PATH" ]; then
     ELECTRON_DIR="\$(dirname "\$(dirname "\$(readlink -f "\$ELECTRON_PATH")")")"
     CHROME_SANDBOX="\$(find "\$ELECTRON_DIR" -name chrome-sandbox 2>/dev/null | head -n 1)"
@@ -454,15 +488,9 @@ else
     SANDBOX_FLAG="--no-sandbox"
 fi
 
-# Run with bundled electron or fall back to global if not available
-if [ -f "\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron" ]; then
-    # Use bundled electron
-    "\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron" \$SANDBOX_FLAG "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
-else
-    # Fall back to globally installed electron
-    echo "Warning: Bundled Electron not found, falling back to system Electron"
-    electron \$SANDBOX_FLAG "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
-fi
+# Run the application with the detected electron path
+echo "Using Electron: \$ELECTRON_PATH"
+"\$ELECTRON_PATH" \$SANDBOX_FLAG "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
 EOF
 chmod +x "$APP_DIR/AppRun"
 

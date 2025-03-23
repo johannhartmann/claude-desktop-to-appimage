@@ -512,9 +512,26 @@ if [ -z "\$ELECTRON_PATH" ] || [ ! -x "\$ELECTRON_PATH" ]; then
     exit 1
 fi
 
-# Run the electron app with the ASAR file
-echo "Running: \$ELECTRON_PATH \$HERE/usr/lib/claude-desktop/app.asar \$@" >> /tmp/claude-apprun.log
-exec "\$ELECTRON_PATH" --no-sandbox "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
+# Run the electron app with the ASAR file (with sandbox disabled)
+echo "Running: \$ELECTRON_PATH --no-sandbox \$HERE/usr/lib/claude-desktop/app.asar \$@" >> /tmp/claude-apprun.log
+
+# If it's an NVM-installed electron or appears to be a script rather than a binary
+if echo "\$ELECTRON_PATH" | grep -q "nvm" || file "\$ELECTRON_PATH" | grep -q "script"; then
+    # For NVM or script-based Electron, make sure we have node in PATH and use --no-sandbox
+    if [ -n "\$NODE_PATH" ]; then
+        echo "Using Node.js: \$NODE_PATH" >> /tmp/claude-apprun.log
+        NODE_DIR="\$(dirname "\$NODE_PATH")"
+        export PATH="\$NODE_DIR:\$PATH"
+    fi
+
+    # Ensure we use no-sandbox option when using NVM
+    echo "Using script-based Electron with --no-sandbox" >> /tmp/claude-apprun.log
+    exec "\$ELECTRON_PATH" --no-sandbox "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
+else
+    # For direct binary Electron installations, also use no-sandbox
+    echo "Using binary Electron with --no-sandbox" >> /tmp/claude-apprun.log
+    exec "\$ELECTRON_PATH" --no-sandbox "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
+fi
 EOF
 chmod +x "$APP_DIR/AppRun"
 

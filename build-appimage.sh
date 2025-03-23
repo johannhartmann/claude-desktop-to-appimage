@@ -415,6 +415,11 @@ EOF
 cat > "$APP_DIR/AppRun" << EOF
 #!/bin/bash
 HERE="\$(dirname "\$(readlink -f "\$0")")"
+export ELECTRON_PATH=""
+export NODE_PATH=""
+
+# Log AppRun execution for troubleshooting
+echo "Starting Claude Desktop AppRun at \$(date)" >> /tmp/claude-apprun.log
 
 # Set up environment
 export PATH="\$HERE/usr/bin:\$HERE/usr/lib/claude-desktop/node_modules/.bin:\$PATH"
@@ -424,78 +429,109 @@ export LD_LIBRARY_PATH="\$HERE/usr/lib:\$PATH"
 if [ -f "\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron" ]; then
     # Use bundled electron
     ELECTRON_PATH="\$HERE/usr/lib/claude-desktop/node_modules/.bin/electron"
+    echo "Found bundled electron: \$ELECTRON_PATH" >> /tmp/claude-apprun.log
 else
-    # Search for electron in common locations
-    ELECTRON_PATHS=(
-        # Look in PATH
-        "\$(which electron 2>/dev/null)"
-        # Check common NVM locations
-        "\$HOME/.nvm/versions/node/*/bin/electron"
-        # Check common global npm locations
-        "/usr/local/bin/electron"
-        "/usr/bin/electron"
-        # Check flatpak electron
-        "/var/lib/flatpak/exports/bin/io.atom.electron"
+    # Log the PATH for debugging
+    echo "PATH at startup: \$PATH" >> /tmp/claude-apprun.log
+
+    # Search for node first
+    NODE_PATHS=(
+        "/usr/bin/node"
+        "/usr/local/bin/node"
+        "\$(find \$HOME/.nvm/versions/node -name node -type f -executable 2>/dev/null | head -n 1)"
     )
 
-    for path in "\${ELECTRON_PATHS[@]}"; do
+    for path in "\${NODE_PATHS[@]}"; do
         if [ -n "\$path" ] && [ -x "\$path" ]; then
-            ELECTRON_PATH="\$path"
+            NODE_PATH="\$path"
+            NODE_DIR="\$(dirname "\$path")"
+            export PATH="\$NODE_DIR:\$PATH"
+            echo "Found node: \$NODE_PATH" >> /tmp/claude-apprun.log
             break
         fi
     done
 
-    # Handle glob expansion for NVM
-    if [ -z "\$ELECTRON_PATH" ]; then
-        NVM_ELECTRON=(\$HOME/.nvm/versions/node/*/bin/electron)
-        if [ -x "\${NVM_ELECTRON[0]}" ]; then
-            ELECTRON_PATH="\${NVM_ELECTRON[0]}"
+    # Search for electron in common locations
+    ELECTRON_PATHS=(
+        # Look in PATH with the updated PATH that includes node
+        "\$(which electron 2>/dev/null)"
+        # Check XDG desktop environment paths
+        "/usr/bin/electron"
+        "/usr/local/bin/electron"
+        # Include common flatpak location
+        "/var/lib/flatpak/exports/bin/io.atom.electron"
+        # Check snap location
+        "/snap/bin/electron"
+        # Check NPM global installations
+        "/usr/local/lib/node_modules/electron/dist/electron"
+        "/usr/lib/node_modules/electron/dist/electron"
+        # Try to directly access NVM electron with absolute path
+        "\$(find \$HOME/.nvm/versions/node -name electron -type f -executable 2>/dev/null | head -n 1)"
+        # Try distro-specific locations
+        "/opt/electron/electron"
+    )
+
+    for path in "\${ELECTRON_PATHS[@]}"; do
+        if [ -n "\$path" ] && [ -x "\$path" ]; then
+            # Basic check if it's an ELF binary
+            if file "\$path" 2>/dev/null | grep -q "ELF"; then
+                ELECTRON_PATH="\$path"
+                echo "Found electron binary: \$ELECTRON_PATH" >> /tmp/claude-apprun.log
+                break
+            fi
+
+            # If it's not an ELF binary but exists and is executable, it might be a script
+            # Check if we found node earlier, which means we can run scripts
+            if [ -n "\$NODE_PATH" ]; then
+                ELECTRON_PATH="\$path"
+                echo "Found electron script: \$ELECTRON_PATH (using node at \$NODE_PATH)" >> /tmp/claude-apprun.log
+                break
+            fi
         fi
-    fi
+    done
 fi
 
 # If we still don't have a valid electron path, inform the user
 if [ -z "\$ELECTRON_PATH" ] || [ ! -x "\$ELECTRON_PATH" ]; then
-    echo "Error: Could not find electron executable."
-    echo "Please install electron globally with: npm install -g electron"
-    echo "Or run with: electron \$HERE/usr/lib/claude-desktop/app.asar"
+    ERROR_MSG="Error: Could not find electron executable. Please install electron globally with 'npm install -g electron' or rebuild with '--bundle-electron'."
+    echo "\$ERROR_MSG" >> /tmp/claude-apprun.log
+    echo "\$ERROR_MSG"
+
+    # Log the attempted paths
+    echo "System PATH: \$PATH" >> /tmp/claude-apprun.log
+    echo "Attempted to find electron in:" >> /tmp/claude-apprun.log
+    for path in "\${ELECTRON_PATHS[@]}"; do
+        echo "  - \$path" >> /tmp/claude-apprun.log
+    done
+
+    # Create desktop notification for better visibility when launched from menu
+    if command -v notify-send &>/dev/null; then
+        notify-send -u critical "Claude Desktop Error" "Could not find Electron. Please install Electron or rebuild with --bundle-electron."
+    fi
+
     exit 1
 fi
 
-# Check for sandbox configuration issues
-if [ -n "\$ELECTRON_PATH" ]; then
-    ELECTRON_DIR="\$(dirname "\$(dirname "\$(readlink -f "\$ELECTRON_PATH")")")"
-    CHROME_SANDBOX="\$(find "\$ELECTRON_DIR" -name chrome-sandbox 2>/dev/null | head -n 1)"
-
-    if [ -n "\$CHROME_SANDBOX" ] && [ ! -u "\$CHROME_SANDBOX" ]; then
-        # The sandbox exists but is not properly configured
-        echo "Warning: Electron sandbox is not properly configured."
-        echo "To fix permanently: sudo chown root:root \"\$CHROME_SANDBOX\" && sudo chmod 4755 \"\$CHROME_SANDBOX\""
-        echo "Running with --no-sandbox for now."
-        SANDBOX_FLAG="--no-sandbox"
-    else
-        # Check if we can run with sandbox by looking at usernamespaces
-        if [ ! -e /proc/sys/kernel/unprivileged_userns_clone ] || [ "\$(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null)" != "1" ]; then
-            echo "Warning: Unprivileged user namespaces not enabled. Running without sandbox."
-            echo "For better security, consider running: sudo sysctl kernel.unprivileged_userns_clone=1"
-            SANDBOX_FLAG="--no-sandbox"
-        else
-            SANDBOX_FLAG=""
-        fi
-    fi
-else
-    # If we can't find electron, default to no-sandbox
-    SANDBOX_FLAG="--no-sandbox"
-fi
-
-# Run the application with the detected electron path
-echo "Using Electron: \$ELECTRON_PATH"
-"\$ELECTRON_PATH" \$SANDBOX_FLAG "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
+# Run the electron app with the ASAR file
+echo "Running: \$ELECTRON_PATH \$HERE/usr/lib/claude-desktop/app.asar \$@" >> /tmp/claude-apprun.log
+exec "\$ELECTRON_PATH" --no-sandbox "\$HERE/usr/lib/claude-desktop/app.asar" "\$@"
 EOF
 chmod +x "$APP_DIR/AppRun"
 
-# Create symbolic link for desktop file
-ln -sf claude-desktop.desktop "$APP_DIR/usr/share/applications/claude-desktop.desktop"
+# Create desktop entry - fixed to properly handle URL protocols
+cat > "$APP_DIR/claude-desktop.desktop" << EOF
+[Desktop Entry]
+Name=Claude
+Exec=AppRun %U
+Icon=claude-desktop
+Type=Application
+Terminal=false
+Categories=Utility;Network;
+MimeType=x-scheme-handler/claude;
+StartupWMClass=Claude
+X-AppImage-Version=$VERSION
+X-AppImage-Name=Claude Desktop
+EOF
 
 # Build AppImage
 echo "🖹 Building AppImage..."

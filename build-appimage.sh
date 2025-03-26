@@ -114,11 +114,17 @@ fi
 # Check for appimagetool
 if ! check_command $APP_IMAGE_TOOL; then
     echo "Installing appimagetool..."
-    exit 1
     wget -O /tmp/appimagetool-x86_64.AppImage https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
     chmod +x /tmp/appimagetool-x86_64.AppImage
-    mv /tmp/appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
-    echo "✓ appimagetool installed"
+    echo "Sudo privileges required to install appimagetool to /usr/local/bin/"
+    sudo mv /tmp/appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
+    if [ $? -eq 0 ]; then
+        echo "✓ appimagetool installed successfully"
+        APP_IMAGE_TOOL="/usr/local/bin/appimagetool"
+    else
+        echo "❌ Failed to install appimagetool. Please install it manually or update the APP_IMAGE_TOOL variable."
+        exit 1
+    fi
 fi
 
 # Check for electron - first local, then global

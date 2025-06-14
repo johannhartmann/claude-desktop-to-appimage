@@ -441,8 +441,10 @@ cp -r app.asar.unpacked "$APP_DIR/usr/lib/claude-desktop/"
 
 # Copy local electron if available
 if [ ! -z "$LOCAL_ELECTRON" ]; then
-    echo "Copying local electron to package..."
-    cp -r "$(dirname "$LOCAL_ELECTRON")/.." "$APP_DIR/usr/lib/claude-desktop/node_modules/"
+    if [ "$ELECTRON_BUNDLED" -eq 1 ]; then
+        echo "Copying local electron to package..."
+        cp -r "$(dirname "$LOCAL_ELECTRON")/.." "$APP_DIR/usr/lib/claude-desktop/node_modules/"
+    fi
 fi
 
 # Create desktop entry
@@ -520,24 +522,28 @@ else
         "/opt/electron/electron"
     )
 
-    for path in "\${ELECTRON_PATHS[@]}"; do
-        if [ -n "\$path" ] && [ -x "\$path" ]; then
-            # Basic check if it's an ELF binary
-            if file "\$path" 2>/dev/null | grep -q "ELF"; then
-                ELECTRON_PATH="\$path"
-                echo "Found electron binary: \$ELECTRON_PATH" >> /tmp/claude-apprun.log
-                break
-            fi
+    ELECTRON_PATH=\$(which electron 2>/dev/null || echo "")
 
-            # If it's not an ELF binary but exists and is executable, it might be a script
-            # Check if we found node earlier, which means we can run scripts
-            if [ -n "\$NODE_PATH" ]; then
-                ELECTRON_PATH="\$path"
-                echo "Found electron script: \$ELECTRON_PATH (using node at \$NODE_PATH)" >> /tmp/claude-apprun.log
-                break
+    if [ -z "$ELECTRON_PATH" ]; then
+        for path in "\${ELECTRON_PATHS[@]}"; do
+            if [ -n "\$path" ] && [ -x "\$path" ]; then
+                # Basic check if it's an ELF binary
+                if file "\$path" 2>/dev/null | grep -q "ELF"; then
+                    ELECTRON_PATH="\$path"
+                    echo "Found electron binary: \$ELECTRON_PATH" >> /tmp/claude-apprun.log
+                    break
+                fi
+
+                # If it's not an ELF binary but exists and is executable, it might be a script
+                # Check if we found node earlier, which means we can run scripts
+                if [ -n "\$NODE_PATH" ]; then
+                    ELECTRON_PATH="\$path"
+                    echo "Found electron script: \$ELECTRON_PATH (using node at \$NODE_PATH)" >> /tmp/claude-apprun.log
+                    break
+                fi
             fi
-        fi
-    done
+        done
+    fi
 fi
 
 # If we still don't have a valid electron path, inform the user

@@ -345,6 +345,49 @@ mkdir -p app.asar.contents/resources/i18n
 cp ../lib/net45/resources/Tray* app.asar.contents/resources/
 cp ../lib/net45/resources/*-*.json app.asar.contents/resources/i18n/
 
+echo "##############################################################"
+echo "Removing "'!'" from 'if ("'!'"isWindows && isMainWindow) return null;'"
+echo "detection flag to enable title bar"
+
+echo "Current working directory: '$PWD'"
+
+SEARCH_BASE="app.asar.contents/.vite/renderer/main_window/assets"
+TARGET_PATTERN="MainWindowPage-*.js"
+
+echo "Searching for '$TARGET_PATTERN' within '$SEARCH_BASE'..."
+# Find the target file recursively (ensure only one matches)
+TARGET_FILES=$(find "$SEARCH_BASE" -type f -name "$TARGET_PATTERN")
+# Count non-empty lines to get the number of files found
+NUM_FILES=$(echo "$TARGET_FILES" | grep -c .)
+
+if [ "$NUM_FILES" -eq 0 ]; then
+  echo "Error: No file matching '$TARGET_PATTERN' found within '$SEARCH_BASE'." >&2
+  exit 1
+elif [ "$NUM_FILES" -gt 1 ]; then
+  echo "Error: Expected exactly one file matching '$TARGET_PATTERN' within '$SEARCH_BASE', but found $NUM_FILES." >&2
+  echo "Found files:" >&2
+  echo "$TARGET_FILES" >&2
+  exit 1
+else
+  # Exactly one file found
+  TARGET_FILE="$TARGET_FILES" # Assign the found file path
+  echo "Found target file: $TARGET_FILE"
+  echo "Attempting to replace patterns like 'if(!VAR1 && VAR2)' with 'if(VAR1 && VAR2)' in $TARGET_FILE..."
+  # Use character classes [a-zA-Z]+ to match minified variable names
+  # Capture group 1: first variable name
+  # Capture group 2: second variable name
+  sed -i -E 's/if\(!([a-zA-Z]+)[[:space:]]*&&[[:space:]]*([a-zA-Z]+)\)/if(\1 \&\& \2)/g' "$TARGET_FILE"
+
+  # Verification: Check if the original pattern structure still exists
+  if ! grep -q -E 'if\(![a-zA-Z]+[[:space:]]*&&[[:space:]]*[a-zA-Z]+\)' "$TARGET_FILE"; then
+    echo "Successfully replaced patterns like 'if(!VAR1 && VAR2)' with 'if(VAR1 && VAR2)' in $TARGET_FILE"
+  else
+    echo "Error: Failed to replace patterns like 'if(!VAR1 && VAR2)' in $TARGET_FILE. Check file contents." >&2
+    exit 1
+  fi
+fi
+echo "##############################################################"
+
 # Repackage app.asar
 npx asar pack app.asar.contents app.asar
 

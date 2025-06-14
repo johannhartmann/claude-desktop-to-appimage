@@ -22,6 +22,8 @@ CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-34
 # YOU SHOULD NOT NEED TO CHANGE ANYTHING BELOW THIS LINE
 # ==========================================================================================
 
+WORK_DIR="$(pwd)/build"
+
 # Now read command line arguments to change the above variables
 # with flags --appimagetool and --bundle-electron
 # also supports -h and --help
@@ -43,11 +45,21 @@ while [[ $# -gt 0 ]]; do
             KEEP_INSTALLER=1
             shift
             ;;
+        --clean-cache)
+            CACHE_DIR="$HOME/.cache/claude-desktop-appimage"
+            echo "🧹 Removing cache directory: $CACHE_DIR"
+            rm -rf "$CACHE_DIR"
+            echo "🧹 Removing build directory: $WORK_DIR"
+            rm -rf "$WORK_DIR"
+            echo "✓ Cache directory removed successfully"
+            exit 0
+            ;;
         -h|--help)
-            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [--keep-installer] [-h|--help]"
+            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [--keep-installer] [--clean-cache] [-h|--help]"
             echo "  --appimagetool <path>   Path to appimagetool (default: $APP_IMAGE_TOOL)"
             echo "  --bundle-electron       Bundle Electron with the AppImage (default: $ELECTRON_BUNDLED)"
             echo "  --keep-installer        Keep installer outside build directory to avoid re-downloading"
+            echo "  --clean-cache           Remove cache directory and exit"
             echo "  --claude-download-url   URL to download the Claude Desktop installer (default: $CLAUDE_DOWNLOAD_URL)"
             echo "  -h, --help             Show this help message"
             exit 0
@@ -193,7 +205,6 @@ else
 fi
 
 # Create working directories
-WORK_DIR="$(pwd)/build"
 APP_DIR="$WORK_DIR/ClaudeDesktop.AppDir"
 
 # Clean previous build

@@ -1,0 +1,8 @@
+{
+	"patterns": [
+		"build",
+		"node_modules",
+		"*.md",
+		"package*"
+	]
+}

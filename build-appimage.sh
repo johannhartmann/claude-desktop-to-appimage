@@ -12,6 +12,9 @@ APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
 # Set to 0 if you want to use the system Electron
 ELECTRON_BUNDLED=0
 
+# Set to 1 if you want to keep the installer outside the build directory to avoid re-downloading
+KEEP_INSTALLER=0
+
 # Update this URL when a new version of Claude Desktop is released
 CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-win-x64/Claude-Setup-x64.exe"
 
@@ -36,10 +39,15 @@ while [[ $# -gt 0 ]]; do
             ELECTRON_BUNDLED=1
             shift
             ;;
+        --keep-installer)
+            KEEP_INSTALLER=1
+            shift
+            ;;
         -h|--help)
-            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [-h|--help]"
+            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [--keep-installer] [-h|--help]"
             echo "  --appimagetool <path>   Path to appimagetool (default: $APP_IMAGE_TOOL)"
             echo "  --bundle-electron       Bundle Electron with the AppImage (default: $ELECTRON_BUNDLED)"
+            echo "  --keep-installer        Keep installer outside build directory to avoid re-downloading"
             echo "  --claude-download-url   URL to download the Claude Desktop installer (default: $CLAUDE_DOWNLOAD_URL)"
             echo "  -h, --help             Show this help message"
             exit 0
@@ -203,7 +211,15 @@ if ! npm list -g asar > /dev/null 2>&1; then
 fi
 
 # Download Claude Windows installer
-CLAUDE_EXE="$WORK_DIR/Claude-Setup-x64.exe"
+if [ "$KEEP_INSTALLER" -eq 1 ]; then
+    # Use cache directory for persistent storage
+    CACHE_DIR="$HOME/.cache/claude-desktop-appimage"
+    mkdir -p "$CACHE_DIR"
+    CLAUDE_EXE="$CACHE_DIR/Claude-Setup-x64.exe"
+else
+    CLAUDE_EXE="$WORK_DIR/Claude-Setup-x64.exe"
+fi
+
 if [ ! -e "$CLAUDE_EXE" ]; then
     echo "❌ Claude Desktop installer not found. Downloading..."
     echo "📥 Downloading Claude Desktop installer..."
@@ -213,7 +229,7 @@ if [ ! -e "$CLAUDE_EXE" ]; then
     fi
     echo "✓ Download complete"
 else
-    echo "✓ Claude Desktop installer already exists"
+    echo "✓ Claude Desktop installer already exists at: $CLAUDE_EXE"
 fi
 
 # Extract resources

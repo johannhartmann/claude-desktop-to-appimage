@@ -113,10 +113,10 @@ echo "Checking dependencies..."
 DEPS_TO_INSTALL=""
 
 # Check system package dependencies
-for cmd in 7zip wget wrestool icotool convert npx; do
+for cmd in 7z wget wrestool icotool convert npx; do
     if ! check_command "$cmd"; then
         case "$cmd" in
-            "7zip")
+            "7z")
                 DEPS_TO_INSTALL="$DEPS_TO_INSTALL 7zip"
                 ;;
             "wget")

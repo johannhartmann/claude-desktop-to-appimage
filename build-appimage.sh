@@ -385,7 +385,7 @@ cp ../lib/net45/resources/*-*.json app.asar.contents/resources/i18n/
 
 echo "##############################################################"
 echo "Removing "'!'" from 'if ("'!'"isWindows && isMainWindow) return null;'"
-echo "detection flag to enable title bar and window controls"
+echo "detection flag to enable title bar"
 
 echo "Current working directory: '$PWD'"
 
@@ -420,27 +420,13 @@ else
   # Capture group 2: second variable name
   sed -i -E 's/if\(!([a-zA-Z]+)[[:space:]]*&&[[:space:]]*([a-zA-Z]+)\)/if(\1 \&\& \2)/g' "$TARGET_FILE"
 
-  # Additional patterns to ensure window controls work properly
-  echo "Applying additional window control fixes..."
-
-  # Fix frame:false to frame:true patterns
-  sed -i -E 's/frame:[[:space:]]*false/frame:true/g' "$TARGET_FILE"
-
-  # Fix titleBarStyle patterns that might hide controls
-  sed -i -E 's/titleBarStyle:[[:space:]]*"hidden"/titleBarStyle:"default"/g' "$TARGET_FILE"
-  sed -i -E 's/titleBarStyle:[[:space:]]*"hiddenInset"/titleBarStyle:"default"/g' "$TARGET_FILE"
-
-  # Ensure window decorations are enabled
-  sed -i -E 's/"webSecurity":[[:space:]]*true/"webSecurity":true,"frame":true,"titleBarStyle":"default"/g' "$TARGET_FILE"
-
   # Verification: Check if the original pattern structure still exists
   if ! grep -q -E 'if\(![a-zA-Z]+[[:space:]]*&&[[:space:]]*[a-zA-Z]+\)' "$TARGET_FILE"; then
     echo "Successfully replaced patterns like 'if(!VAR1 && VAR2)' with 'if(VAR1 && VAR2)' in $TARGET_FILE"
   else
-    echo "Warning: Some patterns like 'if(!VAR1 && VAR2)' may still exist in $TARGET_FILE" >&2
+    echo "Error: Failed to replace patterns like 'if(!VAR1 && VAR2)' in $TARGET_FILE. Check file contents." >&2
+    exit 1
   fi
-
-  echo "Applied window control fixes to ensure minimize/maximize/close buttons appear"
 fi
 echo "##############################################################"
 

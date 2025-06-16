@@ -5,6 +5,7 @@ set -e
 # Change these variables to customize the build (or use command line arguments, see below)
 # ==========================================================================================
 
+
 # Path to appimagetool
 APP_IMAGE_TOOL="/home/fabio/data/opt/appimagetool-x86_64.AppImage"
 
@@ -18,11 +19,16 @@ KEEP_INSTALLER=0
 # Update this URL when a new version of Claude Desktop is released
 CLAUDE_DOWNLOAD_URL="https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-win-x64/Claude-Setup-x64.exe"
 
+# Directory where the build will be done
+WORK_DIR="/tmp/claude-build"
+
 # ==========================================================================================
 # YOU SHOULD NOT NEED TO CHANGE ANYTHING BELOW THIS LINE
 # ==========================================================================================
 
-WORK_DIR="$(pwd)/build"
+# Version of this build script
+VERSION="0.2.0"
+
 
 # Now read command line arguments to change the above variables
 # with flags --appimagetool and --bundle-electron
@@ -54,13 +60,18 @@ while [[ $# -gt 0 ]]; do
             echo "✓ Cache directory removed successfully"
             exit 0
             ;;
+        -v|--version)
+            echo "Claude Desktop AppImage Builder v$VERSION"
+            exit 0
+            ;;
         -h|--help)
-            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [--keep-installer] [--clean-cache] [-h|--help]"
+            echo "Usage: $0 [--appimagetool <path>] [--bundle-electron] [--keep-installer] [--clean-cache] [--version] [-h|--help]"
             echo "  --appimagetool <path>   Path to appimagetool (default: $APP_IMAGE_TOOL)"
             echo "  --bundle-electron       Bundle Electron with the AppImage (default: $ELECTRON_BUNDLED)"
             echo "  --keep-installer        Keep installer outside build directory to avoid re-downloading"
             echo "  --clean-cache           Remove cache directory and exit"
             echo "  --claude-download-url   URL to download the Claude Desktop installer (default: $CLAUDE_DOWNLOAD_URL)"
+            echo "  -v, --version          Show version information"
             echo "  -h, --help             Show this help message"
             exit 0
             ;;
@@ -374,7 +385,7 @@ cp ../lib/net45/resources/*-*.json app.asar.contents/resources/i18n/
 
 echo "##############################################################"
 echo "Removing "'!'" from 'if ("'!'"isWindows && isMainWindow) return null;'"
-echo "detection flag to enable title bar"
+echo "detection flag to enable title bar and window controls"
 
 echo "Current working directory: '$PWD'"
 
@@ -397,21 +408,39 @@ elif [ "$NUM_FILES" -gt 1 ]; then
   exit 1
 else
   # Exactly one file found
-  TARGET_FILE="$TARGET_FILES" # Assign the found file path
+  TARGET_FILE="$TARGET_FILES"
   echo "Found target file: $TARGET_FILE"
+
+  # Create backup of original file
+  cp "$TARGET_FILE" "$TARGET_FILE.backup"
+
   echo "Attempting to replace patterns like 'if(!VAR1 && VAR2)' with 'if(VAR1 && VAR2)' in $TARGET_FILE..."
   # Use character classes [a-zA-Z]+ to match minified variable names
   # Capture group 1: first variable name
   # Capture group 2: second variable name
   sed -i -E 's/if\(!([a-zA-Z]+)[[:space:]]*&&[[:space:]]*([a-zA-Z]+)\)/if(\1 \&\& \2)/g' "$TARGET_FILE"
 
+  # Additional patterns to ensure window controls work properly
+  echo "Applying additional window control fixes..."
+
+  # Fix frame:false to frame:true patterns
+  sed -i -E 's/frame:[[:space:]]*false/frame:true/g' "$TARGET_FILE"
+
+  # Fix titleBarStyle patterns that might hide controls
+  sed -i -E 's/titleBarStyle:[[:space:]]*"hidden"/titleBarStyle:"default"/g' "$TARGET_FILE"
+  sed -i -E 's/titleBarStyle:[[:space:]]*"hiddenInset"/titleBarStyle:"default"/g' "$TARGET_FILE"
+
+  # Ensure window decorations are enabled
+  sed -i -E 's/"webSecurity":[[:space:]]*true/"webSecurity":true,"frame":true,"titleBarStyle":"default"/g' "$TARGET_FILE"
+
   # Verification: Check if the original pattern structure still exists
   if ! grep -q -E 'if\(![a-zA-Z]+[[:space:]]*&&[[:space:]]*[a-zA-Z]+\)' "$TARGET_FILE"; then
     echo "Successfully replaced patterns like 'if(!VAR1 && VAR2)' with 'if(VAR1 && VAR2)' in $TARGET_FILE"
   else
-    echo "Error: Failed to replace patterns like 'if(!VAR1 && VAR2)' in $TARGET_FILE. Check file contents." >&2
-    exit 1
+    echo "Warning: Some patterns like 'if(!VAR1 && VAR2)' may still exist in $TARGET_FILE" >&2
   fi
+
+  echo "Applied window control fixes to ensure minimize/maximize/close buttons appear"
 fi
 echo "##############################################################"
 

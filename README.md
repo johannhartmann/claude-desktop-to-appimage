@@ -1,4 +1,3 @@
-
 # Claude Desktop for Linux (AppImage)
 
 This project was inspired by [aaddrick claude-desktop-debian](https://github.com/aaddrick/claude-desktop-debian) for running Claude Desktop natively on Linux. Their work provided valuable insights into the application's structure and the native bindings implementation.
@@ -8,13 +7,11 @@ The main changes are:
 - No `sudo` required (if some dependencies are missing, it will guide you to install them)
 - AppImage generation instead of a `.deb` package
 
+> NOTE: A big part of this README is taken by [aaddrick claude-desktop-debian](https://github.com/aaddrick/claude-desktop-debian) README
 
-> NOTE:  A big part of this README is taken by [aaddrick claude-desktop-debian](https://github.com/aaddrick/claude-desktop-debian) README
-
-***THIS IS AN UNOFFICIAL BUILD SCRIPT!***
+**_THIS IS AN UNOFFICIAL BUILD SCRIPT!_**
 
 If you run into an issue with this build script, make an issue here. Don't bug Anthropic about it - they already have enough on their plates.
-
 
 # Supports MCP!
 
@@ -47,6 +44,7 @@ cd claude-desktop-to-appimage
 ```
 
 Requirements:
+
 - Any Debian-based Linux distribution
 - Node.js >= 12.0.0 and npm
 
@@ -55,10 +53,13 @@ Requirements:
 The script accepts the following command line arguments:
 
 ```bash
-Usage: ./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [-h|--help]
+Usage: ./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [--keep-installer] [--clean-cache] [--version] [-h|--help]
   --appimagetool <path>   Path to appimagetool (default: /home/fabio/data/opt/appimagetool-x86_64.AppImage)
   --bundle-electron       Bundle Electron with the AppImage (default: 0)
-  --claude-download-url <url>  URL to download the Windows installer (default: https://claude.ai/download)
+  --keep-installer        Keep installer outside build directory to avoid re-downloading
+  --clean-cache           Remove cache directory and exit
+  --claude-download-url   URL to download the Claude Desktop installer (default: https://storage.googleapis.com/osprey-downloads-c02f6a0d-347c-492b-a752-3e0651722e97/nest-win-x64/Claude-Setup-x64.exe)
+  -v, --version          Show version information
   -h, --help             Show this help message
 
 ./build-appimage.sh [--appimagetool <path>] [--bundle-electron] [-h|--help]
@@ -69,6 +70,16 @@ You can run the script without arguments, and it will use the default values.
 ```bash
 ./build-appimage.sh
 ```
+
+Or you can specify some options:
+
+- `--appimagetool <path>`: Specify the path to the `appimagetool` executable (default is `/home/fabio/data/opt/appimagetool-x86_64.AppImage`).
+- `--bundle-electron`: Bundle Electron with the AppImage (default is `0`, meaning it will not bundle Electron, and will use the system-installed version if available (the AppImage will be smaller, but it may only work on your system)).
+- `--keep-installer`: Keep the downloaded installer outside the build directory to avoid re-downloading it on subsequent builds. This is useful if you are making some experimental builds and want to avoid downloading the installer every time. If you use this option, remember to call `--clean-cache` to remove the cache directory when you finish testing.
+- `--clean-cache`: Remove the cache directory and exit. This is useful if you want to start fresh without any cached data.
+- `--claude-download-url <url>`: Specify a custom URL to download the Claude Desktop installer. This is useful if you want to use a different version or source of the installer.
+- `-v, --version`: Show version information of the script.
+- `-h, --help`: Show the help message with available options.
 
 # How it works
 

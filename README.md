@@ -45,7 +45,7 @@ cd claude-desktop-to-appimage
 
 Requirements:
 
-- Any Debian-based Linux distribution
+- Any Debian-based Linux distribution (or NixOS - see [BUILD_NIXOS.md](BUILD_NIXOS.md))
 - Node.js >= 12.0.0 and npm
 
 ## Command line
